@@ -1,0 +1,167 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  User
+  Admin
+}
+
+model User {
+  id            Int             @id @default(autoincrement())
+  email         String          @unique
+  first_name    String
+  last_name     String
+  username      String          @unique
+  password      String
+  avatar        UserAvatar      @relation(fields: [avatarId], references: [id])
+  avatarId      Int
+  status        Boolean         @default(false)
+  role          Role            @default(User)
+  carFindex     CarFindex?      @relation(fields: [carFindexId], references: [id])
+  carFindexId   Int?
+  FIndex        FIndex[]
+  Payments      Payments[]
+  Contacts      Contacts[]
+  RefreshTokens RefreshTokens[]
+  Otps          Otps[]
+  Rentals       Rentals[]
+}
+
+model UserAvatar {
+  id         Int    @id @default(autoincrement())
+  avatar_url String
+  User       User[]
+}
+
+model FIndex {
+  id     Int  @id @default(autoincrement())
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+  score  Int
+}
+
+enum paymentMethods {
+  Card
+  Cash
+}
+
+enum paymentStatus {
+  Pending
+  Confirmed
+}
+
+model Payments {
+  id       Int            @id @default(autoincrement())
+  rental   Rentals?       @relation(fields: [rentalId], references: [id])
+  rentalId Int?
+  amount   Decimal
+  method   paymentMethods
+  status   paymentStatus  @default(Pending)
+  User     User?          @relation(fields: [userId], references: [id])
+  userId   Int?
+}
+
+model Contacts {
+  id           Int    @id @default(autoincrement())
+  phone_number String
+  user         User   @relation(fields: [userId], references: [id])
+  userId       Int
+  email        String
+}
+
+model RefreshTokens {
+  id     Int    @id @default(autoincrement())
+  user   User   @relation(fields: [userId], references: [id])
+  userId Int
+  token  String
+}
+
+model Otps {
+  id     Int    @id @default(autoincrement())
+  user   User   @relation(fields: [userId], references: [id])
+  userId Int
+  otp    String
+}
+
+enum CarType {
+  Sedan
+  Suv
+  Four_x_4
+  Truck
+}
+
+model Cars {
+  id        Int         @id @default(autoincrement())
+  type      CarType
+  year      Int
+  isAviable Boolean
+  CarImages CarImages[]
+  Model     Model[]
+  Brands    Brands[]
+  Colour    Colour[]
+  CarFindex CarFindex[]
+  Rentals   Rentals[]
+}
+
+model CarImages {
+  id      Int    @id @default(autoincrement())
+  car     Cars   @relation(fields: [carId], references: [id])
+  carId   Int
+  url     String
+  memtype String
+  size    Int
+}
+
+model Model {
+  id    Int    @id @default(autoincrement())
+  model String
+  car   Cars   @relation(fields: [carId], references: [id])
+  carId Int
+}
+
+model Brands {
+  id    Int    @id @default(autoincrement())
+  name  String
+  car   Cars   @relation(fields: [carId], references: [id])
+  carId Int
+}
+
+model Colour {
+  id     Int    @id @default(autoincrement())
+  colour String
+  car    Cars   @relation(fields: [carId], references: [id])
+  carId  Int
+}
+
+model CarFindex {
+  id    Int    @id @default(autoincrement())
+  car   Cars   @relation(fields: [carId], references: [id])
+  carId Int
+  score Int
+  User  User[]
+}
+
+model Rentals {
+  id         Int        @id @default(autoincrement())
+  car        Cars       @relation(fields: [carId], references: [id])
+  carId      Int
+  user       User       @relation(fields: [userId], references: [id])
+  userId     Int
+  startDate  DateTime   @default(now())
+  endDate    DateTime
+  totalPrice Decimal
+  status     Boolean    @default(false)
+  Payments   Payments[]
+}

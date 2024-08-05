@@ -1,0 +1,33 @@
+services:
+  node :
+    image : node
+    container_name : demo-task
+    ports : 
+      - "6000:3001"
+    depends_on : 
+      - redis
+    environment:
+      - DEBUG=1
+      - PORT=2
+    env_file : 
+      - .env
+  redis :
+    image : redis
+    container_name : redis-task
+  db :
+    image : postgres
+    container_name : db-sql
+   
+    environment:
+      POSTGRES_DB: 'postgres_db'
+      POSTGRES_USER: 'db_user'
+      POSTGRES_PASSWORD: 'password'
+    ports : 
+      - '5490:5432'
+  os : 
+    image : ubuntu
+    container_name : ubuntu-os
+
+networks :
+    backend-net :
+      driver : bridge
