@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put, UseGuards, Optional } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
@@ -9,7 +9,7 @@ import { RegisterDto } from './dto/create-user.dto';
 
 @ApiTags('User')
 @Controller('user')
-@UseGuards(JwtAuthGuard, RolesGuard) 
+
 export class UserController {
   constructor(private readonly userService: UserService) { }
 
@@ -41,6 +41,7 @@ export class UserController {
 
   @Put(':id')
   @Roles('Admin') 
+  @UseGuards(JwtAuthGuard, RolesGuard) 
   @ApiOperation({ summary: 'Update a specific user by ID' })
   @ApiParam({ name: 'id', type: 'string', description: 'ID of the user to update' })
   @ApiResponse({ status: 200, description: 'The user has been successfully updated.' })

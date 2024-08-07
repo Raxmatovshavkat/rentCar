@@ -23,18 +23,27 @@ export class UserService {
   ) { }
 
   async createUser(registerDto: RegisterDto): Promise<any> {
-    const { email, password, first_name, last_name, username, phone, avatarId } = registerDto;
+    const { email, password, first_name, last_name, username, avatarId } = registerDto;
 
-    const existingUser = await this.userModel.user.findUnique({
+    // Check if a user with the same email exists
+    const existingUserByEmail = await this.userModel.user.findUnique({
       where: { email },
     });
 
-    if (existingUser) {
+    if (existingUserByEmail) {
       throw new ConflictException('User already exists with this email');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Check if a user with the same username exists
+    const existingUserByUsername = await this.userModel.user.findUnique({
+      where: { username },
+    });
 
+    if (existingUserByUsername) {
+      throw new ConflictException('User already exists with this username');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     await this.otpService.sendOtp(email);
 
     try {
@@ -45,14 +54,22 @@ export class UserService {
           first_name,
           last_name,
           username,
-          phone,
           avatar: avatarId ? { connect: { id: avatarId } } : undefined,
         },
       });
     } catch (error) {
+      console.error('Error creating user:', error);
+
+      // Handle Prisma unique constraint error
+      if (error.code === 'P2002') {
+        const target = error.meta?.target?.[0];
+        throw new ConflictException(`A user with this ${target} already exists`);
+      }
+
       throw new InternalServerErrorException('Failed to create user');
     }
   }
+
 
   async login(loginUserDto: LoginDto) {
     const { email } = loginUserDto;

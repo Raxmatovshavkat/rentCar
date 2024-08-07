@@ -11,12 +11,12 @@ import { VeryifyOtpDto } from 'src/user/dto/verify-otp.dto';
 export class AuthController {
   constructor(private readonly userService: UserService, private readonly otpService: OtpService) { }
 
-  @Post("register")
+  @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User registered successfully.' })
   @ApiResponse({ status: 409, description: 'User already exists with this email.' })
-  create(@Body() createAuthDto: RegisterDto) {
-    return this.userService.createUser(createAuthDto);
+  async register(@Body() registerDto: RegisterDto) {
+    return await this.userService.createUser(registerDto);
   }
 
   @Post("login")

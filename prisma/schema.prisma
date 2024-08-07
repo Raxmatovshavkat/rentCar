@@ -18,10 +18,6 @@ enum Role {
   Admin
 }
 
-enum Status {
-  Inactive
-  Active
-}
 
 model User {
   id            Int             @id @default(autoincrement())
@@ -30,9 +26,8 @@ model User {
   last_name     String
   username      String          @unique
   password      String
-  avatar        UserAvatar      @relation(fields: [avatarId], references: [id])
-  avatarId      Int
-  phone         String
+  avatar        UserAvatar?      @relation(fields: [avatarId], references: [id])
+  avatarId      Int?       
   status        Boolean         @default(false)
   role          Role            @default(User)
   carFindex     CarFindex?      @relation(fields: [carFindexId], references: [id])

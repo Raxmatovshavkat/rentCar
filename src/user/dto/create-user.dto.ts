@@ -26,10 +26,6 @@ export class RegisterDto {
     @MinLength(6)
     password: string;
 
-    @ApiProperty({ example: '+998901234567', description: 'The phone number of the user' })
-    @IsPhoneNumber('UZ')
-    phone: string;
-
     @ApiProperty({ example: 'avatar-id', description: 'The ID of the user avatar' })
     @IsOptional()
     @IsString()
