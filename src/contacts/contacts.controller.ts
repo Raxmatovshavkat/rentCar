@@ -2,8 +2,8 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Request, UseGuards }
 import { ContactsService } from './contacts.service';
 import { CreateContactDto } from './dto/create-contact.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/guard/jwt.guard';
 
 @ApiTags('Contacts')
 @UseGuards(JwtAuthGuard)

@@ -2,17 +2,16 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@n
 import { ModelService } from './model.service';
 import { CreateModelDto } from './dto/create-model.dto';
 import { UpdateModelDto } from './dto/update-model.dto';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/roles.guard';
-import { Roles } from 'src/auth/roles.decorator';
-import { Role } from 'src/auth/role.enum';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Roles } from 'src/auth/guard/roles.decorator';
+import { JwtAuthGuard } from 'src/auth/guard/jwt.guard';
+import { RolesGuard } from 'src/auth/guard/roles.guard';
 
 
 @ApiTags('Car - Model')
 @ApiBearerAuth()
+@Roles('Admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.Admin)
 @Controller('model')
 export class ModelController {
   constructor(private readonly modelService: ModelService) {}

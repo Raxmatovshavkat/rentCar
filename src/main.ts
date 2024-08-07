@@ -2,22 +2,33 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as dotenv from 'dotenv';
+dotenv.config()
 
 async function bootstrap() {
-  const port = process.env.PORT || 3001
+  const port = process.env.DB_PORT
   const app = await NestFactory.create(AppModule);
-  
+
   const config = new DocumentBuilder()
-    .setTitle('Rent cars')
-    .setDescription('The rent cars API description')
+    .setTitle('Clean service')
+    .setDescription('The clean service API description')
     .setVersion('1.0')
-    .addTag('Rent Cars Swagger Documentation')
+    .addTag('clean')
+    .addBearerAuth()
     .build();
+
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('docs', app, document);
+
+  SwaggerModule.setup('swagger', app, document, {
+    jsonDocumentUrl: 'swagger/json',
+  });
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
-  // app.setGlobalPrefix('api/v1')
-  await app.listen(port, () => { console.log('Server has been running on port  ', port) });
+
+  await app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+  });
+
 }
 bootstrap();

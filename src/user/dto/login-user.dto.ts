@@ -1,27 +1,13 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsString, IsNotEmpty, ValidateIf } from "class-validator";
-// import { IsEmailOrUsername } from "src/custom_validator/IsEmailOrUsername";
-import { IsEmailOrUsername } from "src/custom validator/IsEmailOrUsername";
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsString, MinLength } from 'class-validator';
 
-export class LoginUserDto {
-    @ApiProperty()
-    @ValidateIf(o => o.email !== undefined)
+export class LoginDto {
+    @ApiProperty({ example: 'user@example.com', description: 'The email of the user' })
     @IsEmail()
-    @IsString()
-    email?: string;
+    email: string;
 
-    @ValidateIf(o => o.username !== undefined)
+    @ApiProperty({ example: 'password123', description: 'The password of the user' })
     @IsString()
-    username?: string;
-
-    
-    @ApiProperty()
-    @IsString()
-    @IsNotEmpty()
+    @MinLength(6)
     password: string;
-
-    @IsEmailOrUsername({
-        message: 'Either email or username must be provided, but not both.',
-    })
-    emailOrUsername: string; // This is just a dummy property to apply the custom validator
 }

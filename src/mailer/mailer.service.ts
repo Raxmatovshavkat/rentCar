@@ -1,50 +1,52 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailerService {
-    private transporter;
+    private transporter: nodemailer.Transporter;
+    private readonly logger = new Logger(MailerService.name);
 
     constructor() {
-        // Log environment variables for debugging
-        console.log('Email:', process.env.MY_EMAIL);
-        console.log('Password:', process.env.EMAIL_PASS);
+        const email = process.env.MY_EMAIL;
+        const password = process.env.EMAIL_PASS;
 
-        // Create a transporter using nodemailer
+        if (!email || !password) {
+            throw new Error('Email or password environment variables are not set.');
+        }
+
         this.transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com', // Replace with your SMTP server
+            host: 'smtp.gmail.com',
             port: 587,
-            secure: false, // true for 465, false for other ports
+            secure: false, 
             auth: {
-                user: process.env.MY_EMAIL,
-                pass: process.env.EMAIL_PASS,
+                user: email,
+                pass: password,
             },
         });
 
-        // Verify connection configuration
-        this.transporter.verify(function (error, success) {
+        this.transporter.verify((error, success) => {
             if (error) {
-                console.error('Error:', error);
+                this.logger.error('SMTP server verification failed:', error);
             } else {
-                console.log('Server is ready to take our messages');
+                this.logger.log('SMTP server is ready to take our messages');
             }
         });
     }
 
-    async sendMail(to: string, subject: string, text: string, html: string) {
+    async sendMail(to: string, subject: string, text: string, html: string): Promise<void> {
         const mailOptions = {
-            from: process.env.MY_EMAIL, // sender address
-            to: to,
-            subject: subject,
-            text: text,
-            html: html,
+            from: process.env.MY_EMAIL,
+            to,
+            subject,
+            text,
+            html,
         };
 
         try {
             const info = await this.transporter.sendMail(mailOptions);
-            console.log('Email sent:', info.response);
+            this.logger.log(`Email sent: ${info.response}`);
         } catch (error) {
-            console.error('Error sending email:', error);
+            this.logger.error('Error sending email:', error);
         }
     }
 }

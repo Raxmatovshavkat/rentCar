@@ -2,11 +2,8 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Request, UseGuards }
 import { FindexService } from './findex.service';
 import { CreateFindexDto } from './dto/create-findex.dto';
 import { UpdateFindexDto } from './dto/update-findex.dto';
-import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
-import { RolesGuard } from 'src/auth/roles.guard';
-import { Roles } from 'src/auth/roles.decorator';
-import { Role } from 'src/auth/role.enum';
 import { ApiCreatedResponse, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/guard/jwt.guard';
 
 @ApiTags('Findex')
 @UseGuards(JwtAuthGuard)

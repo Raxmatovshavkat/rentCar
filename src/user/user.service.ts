@@ -1,90 +1,206 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { RegisterDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from "bcrypt"
-import { OtpService } from 'src/otp/otp.service';
-import { LoginUserDto } from './dto/login-user.dto';
+import * as bcrypt from 'bcrypt';
+import { UpdatePasswordDto } from './dto/update-password.dto';
+import { LoginDto } from './dto/login-user.dto';
+import { OtpService } from 'src/auth/otp/otp.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class UserService {
-  constructor(private userModel: PrismaService, private jwtService: JwtService, private otpService: OtpService) { }
-  async create(createUserDto: CreateUserDto) {
+  constructor(
+    private readonly userModel: PrismaService,
+    private readonly jwtService: JwtService,
+    private readonly otpService: OtpService,
+  ) { }
+
+  async createUser(registerDto: RegisterDto): Promise<any> {
+    const { email, password, first_name, last_name, username, phone, avatarId } = registerDto;
+
+    const existingUser = await this.userModel.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User already exists with this email');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await this.otpService.sendOtp(email);
+
     try {
-      const willCreatedUser = { ...createUserDto, avatarId: 1 }
-      const salt = +process.env.PASSWORD_SALT
-      const hashedPassword = await bcrypt.hash(willCreatedUser.password, salt)
-      willCreatedUser.password = hashedPassword
-      const user = await this.userModel.user.create({ data: willCreatedUser })
-      this.otpService.sendOtp(user.email)
-      return "Successuful registered a one time passwport sended your email please confirm the one time passport"
-
+      return await this.userModel.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          first_name,
+          last_name,
+          username,
+          phone,
+          avatar: avatarId ? { connect: { id: avatarId } } : undefined,
+        },
+      });
     } catch (error) {
-      console.log(error)
-      throw new InternalServerErrorException("Serverda xatolik")
+      throw new InternalServerErrorException('Failed to create user');
     }
   }
 
-  async login(loginUserDto: LoginUserDto) {
-    if (loginUserDto.email) {
-      const user = await this.userModel.user.findFirst({ where: { email: loginUserDto.email } })
-      if (!user || !await bcrypt.compare(loginUserDto.password, user.password))
-        throw new BadRequestException('Login Yoki Parol notogri')
-      const payload = {
-        sub: user.id,
-        role: user.role,
-        email: user.email
-      }
-      const accesToken = await this.createToken(payload, { expiresIn: process.env.ACCES_TOKEN_SECRET_TIME, secret: process.env.ACCES_TOKEN_SECRET_KEY })
-      const refreshToken = await this.createToken(payload, { expiresIn: process.env.REFRESH_TOKEN_SECRET_TIME, secret: process.env.REFRESH_TOKEN_SECRET_KEY })
-      const refreshTokenTable = await this.userModel.refreshTokens.create({ data: { userId: user.id, token: refreshToken } })
-      return { accesToken, refreshToken }
+  async login(loginUserDto: LoginDto) {
+    const { email } = loginUserDto;
+    let user;
+
+    if (email) {
+      user = await this.userModel.user.findFirst({ where: { email } });
     } else {
-      const user = await this.userModel.user.findFirst({ where: { username: loginUserDto.username } })
-      if (!user || !await bcrypt.compare(loginUserDto.password, user.password))
-        throw new BadRequestException('Login Yoki Parol notogri')
-      const payload = {
-        sub: user.id,
-        role: user.role,
-        email: user.email
-      }
-      const accesToken = await this.createToken(payload, { expiresIn: process.env.ACCES_TOKEN_SECRET_TIME, secret: process.env.ACCES_TOKEN_SECRET_KEY })
-      const refreshToken = await this.createToken(payload, { expiresIn: process.env.REFRESH_TOKEN_SECRET_TIME, secret: process.env.REFRESH_TOKEN_SECRET_KEY })
-      const refreshTokenTable = await this.userModel.refreshTokens.create({ data: { userId: user.id, token: refreshToken } })
-      return { accesToken, refreshToken }
+      user = await this.userModel.user.findFirst({ where: { username: loginUserDto.email } });
     }
 
+    if (!user || !(await bcrypt.compare(loginUserDto.password, user.password))) {
+      throw new BadRequestException('Invalid login or password');
+    }
+
+    const payload = {
+      sub: user.id,
+      role: user.role,
+      email: user.email,
+    };
+
+    const accessToken = await this.createToken(payload, {
+      expiresIn: process.env.ACCES_TOKEN_SECRET_TIME,
+      secret: process.env.ACCES_TOKEN_SECRET_KEY,
+    });
+    const refreshToken = await this.createToken(payload, {
+      expiresIn: process.env.REFRESH_TOKEN_SECRET_TIME,
+      secret: process.env.REFRESH_TOKEN_SECRET_KEY,
+    });
+
+    await this.userModel.refreshTokens.create({
+      data: { userId: user.id, token: refreshToken },
+    });
+
+    return { accessToken, refreshToken };
   }
 
-  createToken(payload, piece) {
-    return this.jwtService.sign(payload, piece)
-
+  createToken(payload: any, options: { expiresIn: string; secret: string }) {
+    return this.jwtService.sign(payload, {
+      secret: options.secret,
+      expiresIn: options.expiresIn,
+    });
   }
 
-  async resetPassword(passwordDto) {
-    return await this.userModel.user.update({ where: { email: passwordDto.email }, data: { password: passwordDto.newpassword } })
+  async revokeToken(refreshToken: string) {
+    try {
+      await this.userModel.refreshTokens.deleteMany({
+        where: { token: refreshToken },
+      });
+      return { message: 'Token revoked successfully' };
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to revoke token');
+    }
   }
+
+  async updatePassword(userId: number, updatePasswordDto: UpdatePasswordDto) {
+    const { old_password, new_password } = updatePasswordDto;
+
+    const user = await this.userModel.user.findUnique({ where: { id: userId } });
+
+    if (!user || !(await bcrypt.compare(old_password, user.password))) {
+      throw new UnauthorizedException('Invalid old password');
+    }
+
+    const hashedNewPassword = await bcrypt.hash(new_password, 10);
+
+    try {
+      await this.userModel.user.update({
+        where: { id: userId },
+        data: { password: hashedNewPassword },
+      });
+      return { message: 'Password updated successfully' };
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to update password');
+    }
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.userModel.user.findUnique({ where: { email } });
+
+    if (!user) {
+      throw new BadRequestException('User with this email does not exist');
+    }
+
+    const resetToken = await this.jwtService.signAsync(
+      { email },
+      { expiresIn: process.env.RESET_PASSWORD_TOKEN_EXPIRES_IN, secret: process.env.RESET_PASSWORD_TOKEN_SECRET_KEY },
+    );
+
+    return { message: 'Password reset email sent' };
+  }
+  async verifyEmail(email: string) {
+    try {
+      const verificationToken = await this.jwtService.signAsync(
+        { email },
+        { expiresIn: process.env.EMAIL_VERIFICATION_TOKEN_EXPIRES_IN, secret: process.env.EMAIL_VERIFICATION_TOKEN_SECRET_KEY },
+      );
+
+      return { message: 'Email verification sent' };
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to send email verification');
+    }
+  }
+
 
   async findAll() {
-    const users = await this.userModel.user.findMany()
-    console.log(users)
-    return users
+    try {
+      return await this.userModel.user.findMany();
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to retrieve users');
+    }
   }
 
-  findOne(id: number) {
-    return this.userModel.user.findFirst({ where: { id: id } })
+  async findOne(id: number) {
+    try {
+      return await this.userModel.user.findFirst({ where: { id } });
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to retrieve user');
+    }
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return this.userModel.user.update({ where: { id: id }, data: { ...updateUserDto } })
+  async update(id: number, updateUserDto: UpdateUserDto) {
+    try {
+      return await this.userModel.user.update({
+        where: { id },
+        data: { ...updateUserDto },
+      });
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to update user');
+    }
   }
+
   async updateByEmail(email: string) {
-    return await this.userModel.user.update({ where: { email: email }, data: { status: true } })
+    try {
+      return await this.userModel.user.update({
+        where: { email },
+        data: { status: true },
+      });
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to update user status');
+    }
   }
 
-  remove(id: number) {
-    return this.userModel.user.delete({ where: { id: id } })
+  async remove(id: number) {
+    try {
+      return await this.userModel.user.delete({ where: { id } });
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to delete user');
+    }
   }
-
 }

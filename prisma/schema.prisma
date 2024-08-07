@@ -18,6 +18,11 @@ enum Role {
   Admin
 }
 
+enum Status {
+  Inactive
+  Active
+}
+
 model User {
   id            Int             @id @default(autoincrement())
   email         String          @unique
@@ -27,6 +32,7 @@ model User {
   password      String
   avatar        UserAvatar      @relation(fields: [avatarId], references: [id])
   avatarId      Int
+  phone         String
   status        Boolean         @default(false)
   role          Role            @default(User)
   carFindex     CarFindex?      @relation(fields: [carFindexId], references: [id])

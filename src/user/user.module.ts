@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UserController } from './user.controller';
-import { JwtModule, JwtService } from '@nestjs/jwt';
+import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { OtpService } from 'src/otp/otp.service';
 import { MailerService } from 'src/mailer/mailer.service';
+import { OtpService } from 'src/auth/otp/otp.service';
 
 @Module({
   // imports : [JwtModule],
