@@ -1,11 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCarFindexDto } from './dto/create-car-findex.dto';
 import { UpdateCarFindexDto } from './dto/update-car-findex.dto';
-
+import { Cache } from 'cache-manager';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 @Injectable()
 export class CarFindexService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private prisma: PrismaService) { }
 
   async create(createCarFindexDto: CreateCarFindexDto) {
     return this.prisma.carFindex.create({
@@ -14,7 +17,17 @@ export class CarFindexService {
   }
 
   async findAll() {
-    return this.prisma.carFindex.findMany();
+    try {
+      const cachedcarFindex = await this.cacheManager.get('carFindex')
+      if (cachedcarFindex) {
+        return cachedcarFindex
+      }
+      const carFindex = await this.prisma.user.findMany();
+      await this.cacheManager.set('carFindex', carFindex, 3600)
+      return carFindex
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to retrieve carFindex');
+    }
   }
 
   async findOne(id: number) {

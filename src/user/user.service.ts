@@ -1,10 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { RegisterDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtService } from '@nestjs/jwt';
@@ -17,6 +20,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 @Injectable()
 export class UserService {
   constructor(
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly userModel: PrismaService,
     private readonly jwtService: JwtService,
     private readonly otpService: OtpService,
@@ -25,7 +29,6 @@ export class UserService {
   async createUser(registerDto: RegisterDto): Promise<any> {
     const { email, password, first_name, last_name, username, avatarId } = registerDto;
 
-    // Check if a user with the same email exists
     const existingUserByEmail = await this.userModel.user.findUnique({
       where: { email },
     });
@@ -34,7 +37,6 @@ export class UserService {
       throw new ConflictException('User already exists with this email');
     }
 
-    // Check if a user with the same username exists
     const existingUserByUsername = await this.userModel.user.findUnique({
       where: { username },
     });
@@ -60,7 +62,6 @@ export class UserService {
     } catch (error) {
       console.error('Error creating user:', error);
 
-      // Handle Prisma unique constraint error
       if (error.code === 'P2002') {
         const target = error.meta?.target?.[0];
         throw new ConflictException(`A user with this ${target} already exists`);
@@ -74,6 +75,7 @@ export class UserService {
   async login(loginUserDto: LoginDto) {
     const { email } = loginUserDto;
     let user;
+
 
     if (email) {
       user = await this.userModel.user.findFirst({ where: { email } });
@@ -91,6 +93,7 @@ export class UserService {
       email: user.email,
     };
 
+
     const accessToken = await this.createToken(payload, {
       expiresIn: process.env.ACCES_TOKEN_SECRET_TIME,
       secret: process.env.ACCES_TOKEN_SECRET_KEY,
@@ -101,11 +104,15 @@ export class UserService {
     });
 
     await this.userModel.refreshTokens.create({
-      data: { userId: user.id, token: refreshToken },
+      data: {
+        token: refreshToken,
+        user: { connect: { id: user.id } },
+      },
     });
 
     return { accessToken, refreshToken };
   }
+
 
   createToken(payload: any, options: { expiresIn: string; secret: string }) {
     return this.jwtService.sign(payload, {
@@ -177,7 +184,13 @@ export class UserService {
 
   async findAll() {
     try {
-      return await this.userModel.user.findMany();
+      const cachedUsers = await this.cacheManager.get('users')
+      if (cachedUsers) {
+        return cachedUsers
+      }
+      const users = await this.userModel.user.findMany();
+      await this.cacheManager.set('users', users, 3600)
+      return users
     } catch (error) {
       throw new InternalServerErrorException('Failed to retrieve users');
     }
